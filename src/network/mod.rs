@@ -1,4 +1,5 @@
 mod frame;
+mod tls;
 use bytes::BytesMut;
 pub use frame::FrameCoder;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};

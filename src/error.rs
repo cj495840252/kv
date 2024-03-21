@@ -1,7 +1,8 @@
+
 use crate::Value;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum KvError {
     #[error("Not Found for table:{0}, key:{1}")]
     NotFound(String, String),
@@ -26,6 +27,15 @@ pub enum KvError {
 
     #[error("FrameError")]
     FrameError,
+
+    #[error("TLS error")]
+    TlsError(#[from] tokio_rustls::rustls::TLSError),
+
+    #[error("Certificate parse error: error to load{0},{1}")]
+    CertifacteParserError(&'static str, &'static str),
+
+    #[error("I/O error")]
+    IoError(#[from] std::io::Error),
 }
 
 impl From<sled::Error> for KvError {
@@ -34,8 +44,8 @@ impl From<sled::Error> for KvError {
     }
 }
 
-impl From<std::io::Error> for KvError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Internal(value.to_string())
-    }
-}
+// impl From<std::io::Error> for KvError {
+//     fn from(value: std::io::Error) -> Self {
+//         Self::Internal(value.to_string())
+//     }
+// }
