@@ -182,14 +182,15 @@ mod tests{
         let addr = start_server(ca.clone()).await?;
         println!("Listening addr {:?}", addr);
         let connector = TlsClientConnector::new("kvserver.acme.inc", client_identity, ca)?;
-        let stream = TcpStream::connect(addr).await?;
+        let stream = TcpStream::connect(addr).await.unwrap();
+        // stream.write_all(b"hello")
         let mut stream = connector.connect(stream).await?;
-        stream.write_all(b"hello world").await?;
+        stream.write_all(b"hello world!").await?;
 
         let mut buf = [0;12];
         stream.read_exact(&mut buf).await?;
 
-        // assert_eq!(&buf, b"hello world!");
+        assert_eq!(&buf, b"hello world!");
 
 
 
@@ -216,7 +217,9 @@ mod tests{
             let (stream,_) = echo.accept().await.unwrap();
             let mut stream = acceptor.accept(stream).await.unwrap();
             let mut buf = [0;12];
+            println!("receive message ...");
             stream.read_exact(&mut buf).await.unwrap();
+            println!("{}", std::str::from_utf8(&buf[..]).unwrap());
             stream.write_all(&buf).await.unwrap();
         });
         Ok(addr)
