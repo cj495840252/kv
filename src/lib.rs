@@ -3,7 +3,7 @@ mod storage;
 mod error;
 mod service;
 mod notify;
-mod network;
+pub mod network;
 
 pub use pb::abi::*;
 pub use storage::*;

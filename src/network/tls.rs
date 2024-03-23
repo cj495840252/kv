@@ -5,12 +5,10 @@ use tokio_rustls::{
         client::TlsStream as ClientTlsStream, 
         server::TlsStream as ServerTlsStream, 
         rustls::{
-            internal::pemfile::{self, pkcs8_private_keys}, AllowAnyAuthenticatedClient, Certificate, 
+            internal::pemfile::{self, pkcs8_private_keys, rsa_private_keys}, AllowAnyAuthenticatedClient, Certificate, 
             ClientConfig, NoClientAuth, PrivateKey, RootCertStore, ServerConfig
         }, 
-        webpki::DNSNameRef, 
-        TlsAcceptor, 
-        TlsConnector
+        webpki::DNSNameRef, TlsAcceptor, TlsConnector
     };
 
 use crate::KvError;
@@ -124,7 +122,7 @@ fn load_key(key: &str) -> Result<PrivateKey, KvError> {
 
     // 再尝试加载RSA key
     cursor.set_position(0);
-    if let Ok(mut keys) = pemfile::rsa_private_keys(&mut cursor) {
+    if let Ok(mut keys) = rsa_private_keys(&mut cursor) {
         if !keys.is_empty() {
             return Ok(keys.remove(0));
         }

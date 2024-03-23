@@ -4,6 +4,7 @@ use futures::prelude::*;
 use kv::{CommandRequest, CommandResponse, MemTable, Service, ServiceInner};
 use tokio::net::TcpListener;
 use tracing::info;
+use kv::network::tls::TlsServerAcceptor;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,10 +12,18 @@ async fn main() -> Result<()> {
     let store = MemTable::new();
     let service: Service = ServiceInner::new(store).into();
     let addr = "127.0.0.1:9527";
+
+    let server_cert = include_str!("../fixtures/server.cert");
+    let server_key = include_str!("../fixtures/server.key");
+    let acceptor = TlsServerAcceptor::new(server_cert, server_key, None)?;
+
+
     let listener = TcpListener::bind(addr).await?;
     info!("Start listening on {}", addr);
     loop {
         let (stream, addr) = listener.accept().await?;
+        let stream = acceptor.accept(stream).await?;
+
         info!("Client {:?} connected", addr);
         let svc = service.clone();
         tokio::spawn(async move {
@@ -28,4 +37,5 @@ async fn main() -> Result<()> {
             info!("Client {:?} disconnected", addr);
         });
     }
+    
 }

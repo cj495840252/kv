@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_prost::AsyncProstStream;
 use futures::prelude::*;
-use kv::{CommandRequest, CommandResponse};
+use kv::{network::TlsClientConnector, CommandRequest, CommandResponse};
 use tokio::net::TcpStream;
 use tracing::info;
 
@@ -9,9 +9,15 @@ use tracing::info;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
+    let ca_cert = include_str!("../fixtures/ca.cert");
+
+    let connector = TlsClientConnector::new("kvserver.acme.inc", None, Some(ca_cert))?;
+
+
     let addr = "127.0.0.1:9527";
     // 连接服务器
     let stream = TcpStream::connect(addr).await?;
+    let stream = connector.connect(stream).await?;
 
     // 使用 AsyncProstStream 来处理 TCP Frame
     let mut client =
