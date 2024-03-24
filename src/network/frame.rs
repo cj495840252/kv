@@ -116,11 +116,13 @@ where
     Ok(())
 }
 
+
 #[cfg(test)]
 mod tests{
     use super::*;
     use crate::Value;
     use bytes::Bytes;
+    use crate::network::utils::is_compressed;
 
     #[test]
     fn command_request_encode_decode_should_work(){
@@ -163,42 +165,4 @@ mod tests{
 
     }
 
-    fn is_compressed(data: &[u8]) -> bool{
-        if let &[v] = &data[..1] {
-            v >> 7 == 1
-        }else {
-            false
-        }
-    }
-
-    struct DummyStream{
-        buf: BytesMut
-    }
-
-    impl AsyncRead for DummyStream {
-        fn poll_read(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-            buf: &mut tokio::io::ReadBuf<'_>,
-        ) -> std::task::Poll<std::io::Result<()>> {
-            let len = buf.capacity();
-            let data = self.get_mut().buf.split_to(len);
-            buf.put_slice(&data);
-            std::task::Poll::Ready(Ok(()))
-        }
-    }
-
-    #[tokio::test]
-    async fn read_frame_should_work(){
-        let mut buf = BytesMut::new();
-        let cmd = CommandRequest::new_hget("table", "key");
-        cmd.encode_frame(&mut buf).unwrap();
-        let mut stream = DummyStream{buf};
-
-        let mut data = BytesMut::new();
-        read_frame(&mut stream, &mut data).await.unwrap();
-
-        let cmd1 = CommandRequest::decode_frame(&mut data).unwrap();
-        assert_eq!(cmd, cmd1)
-    }
 }

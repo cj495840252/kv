@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
     loop {
         let (stream, addr) = listener.accept().await?;
         let stream = acceptor.accept(stream).await?;
-
+        
         info!("Client {:?} connected", addr);
         let svc = service.clone();
         tokio::spawn(async move {
