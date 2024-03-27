@@ -224,3 +224,33 @@ mod tests{
         
     }
 }
+
+
+#[cfg(test)]
+pub mod tls_utils {
+    use crate::{KvError, TlsClientConnector, TlsServerAcceptor};
+
+    const CA_CERT: &str = include_str!("../../fixtures/ca.cert");
+    const CLIENT_CERT: &str = include_str!("../../fixtures/client.cert");
+    const CLIENT_KEY: &str = include_str!("../../fixtures/client.key");
+    const SERVER_CERT: &str = include_str!("../../fixtures/server.cert");
+    const SERVER_KEY: &str = include_str!("../../fixtures/server.key");
+
+    pub fn tls_connector(client_cert: bool) -> Result<TlsClientConnector, KvError> {
+        let ca = Some(CA_CERT);
+        let client_identity = Some((CLIENT_CERT, CLIENT_KEY));
+
+        match client_cert {
+            false => TlsClientConnector::new("kvserver.acme.inc", None, ca),
+            true => TlsClientConnector::new("kvserver.acme.inc", client_identity, ca),
+        }
+    }
+
+    pub fn tls_acceptor(client_cert: bool) -> Result<TlsServerAcceptor, KvError> {
+        let ca = Some(CA_CERT);
+        match client_cert {
+            true => TlsServerAcceptor::new(SERVER_CERT, SERVER_KEY, ca),
+            false => TlsServerAcceptor::new(SERVER_CERT, SERVER_KEY, None),
+        }
+    }
+}

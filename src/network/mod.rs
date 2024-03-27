@@ -1,9 +1,11 @@
 pub mod frame;
 pub mod tls;
+pub mod multiplex;
 
 pub use frame::*;
 use futures::{ FutureExt, Sink, SinkExt, Stream, StreamExt};
 pub use tls::*;
+pub use multiplex::*;
 
 use std::{pin::Pin, task::Poll};
 use bytes::BytesMut;
@@ -37,9 +39,9 @@ impl <S> ProstServerStream<S>
 where 
     S: AsyncRead + AsyncWrite + Unpin + Send
 {
-    pub fn new(stream: ProstStream<S, CommandRequest, CommandResponse>, service: Service) -> Self
+    pub fn new(stream: S, service: Service) -> Self
     {
-        Self { inner: stream, service }
+        Self { inner: ProstStream::new(stream), service }
     }
 
     pub async fn process(mut self) -> Result<(), KvError> {
@@ -72,8 +74,8 @@ impl <S> ProstClientStream<S>
 where 
     S: AsyncRead + AsyncWrite + Unpin + Send
 {
-    pub fn new(stream: ProstStream<S, CommandResponse, CommandRequest>) -> Self{
-        Self { inner: stream }
+    pub fn new(stream: S) -> Self{
+        Self { inner: ProstStream::new(stream) }
     }
 
     pub async fn execute(&mut self, cmd: CommandRequest) -> Result<CommandResponse, KvError>{
@@ -242,7 +244,6 @@ mod tests{
         tokio::spawn(async move {
            loop {
                let (stream, _) = listener.accept().await.unwrap();
-               let stream = ProstStream::new(stream);
                let service: Service = ServiceInner::new(MemTable::new()).into();
                let server = ProstServerStream::new(stream, service);
                tokio::spawn(server.process());
@@ -255,7 +256,6 @@ mod tests{
     async fn client_server_basic_communication_should_work() -> anyhow::Result<()>{
         let addr = start_server().await?;
         let stream = TcpStream::connect(addr).await?;
-        let stream = ProstStream::new(stream);
         let mut client = ProstClientStream::new(stream);
 
         let cmd = CommandRequest::new_hset("table", "key", "value1".into());
@@ -277,7 +277,6 @@ mod tests{
         let addr = start_server().await?;
 
         let stream = TcpStream::connect(addr).await?;
-        let stream = ProstStream::new(stream);
         let mut client = ProstClientStream::new(stream);
         let v: Value = Bytes::from(vec![0u8;16348]).into();
         let cmd = CommandRequest::new_hset("table", "key", v.clone());
@@ -380,4 +379,6 @@ pub mod utils{
         let cmd1 = CommandRequest::decode_frame(&mut data).unwrap();
         assert_eq!(cmd, cmd1)
     }
+
+    
 }

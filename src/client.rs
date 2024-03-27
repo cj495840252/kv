@@ -1,7 +1,7 @@
 
 
 use anyhow::Result;
-use kv::{CommandRequest, ProstClientStream, ProstStream, TlsClientConnector};
+use kv::{CommandRequest, ProstClientStream, TlsClientConnector};
 use tokio::net::TcpStream;
 use tracing::info;
 
@@ -17,7 +17,6 @@ async fn main() -> Result<()> {
 
     let stream = TcpStream::connect(addr).await?;
     let stream = connector.connect(stream).await?;
-    let stream = ProstStream::new(stream);
 
     let mut client = ProstClientStream::new(stream);
 

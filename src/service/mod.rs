@@ -81,6 +81,7 @@ impl <Store: Storage> Service <Store> {
 
     pub fn execute(&self, cmd: CommandRequest) -> CommandResponse {
         debug!("Get request: {:?}", cmd);
+
         self.inner.on_received.notify(&cmd);
         let mut res = dispatch(cmd, &self.inner.store);
         debug!("Executed response: {:?}", res);

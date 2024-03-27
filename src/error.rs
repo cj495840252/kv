@@ -36,6 +36,9 @@ pub enum KvError {
 
     #[error("I/O error")]
     IoError(#[from] std::io::Error),
+
+    #[error("Yamux Connection error")]
+    YamuxConnectionError(#[from] yamux::ConnectionError),
 }
 
 impl From<sled::Error> for KvError {

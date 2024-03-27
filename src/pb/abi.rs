@@ -2,7 +2,7 @@
 #[derive(PartialOrd)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommandRequest {
-    #[prost(oneof="command_request::RequestData", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="command_request::RequestData", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12")]
     pub request_data: ::core::option::Option<command_request::RequestData>,
 }
 /// Nested message and enum types in `CommandRequest`.
@@ -28,7 +28,38 @@ pub mod command_request {
         Hexist(super::Hexist),
         #[prost(message, tag="9")]
         Hmexist(super::Hmexist),
+        #[prost(message, tag="10")]
+        Subscribe(super::Subscribe),
+        #[prost(message, tag="11")]
+        Unsubscribe(super::Unsubscribe),
+        #[prost(message, tag="12")]
+        Publish(super::Publish),
     }
+}
+/// subscribe 到某个主题， 任何发布到这个主题的数据都会被收到
+#[derive(PartialOrd)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Subscribe {
+    #[prost(string, tag="1")]
+    pub topic: ::prost::alloc::string::String,
+}
+/// 取消对某个主题的订阅
+#[derive(PartialOrd)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Unsubscribe {
+    #[prost(string, tag="1")]
+    pub topic: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub id: u32,
+}
+/// 发布数据到某个主题
+#[derive(PartialOrd)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Publish {
+    #[prost(string, tag="1")]
+    pub topic: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub data: ::prost::alloc::vec::Vec<Value>,
 }
 /// 服务器的响应
 #[derive(PartialOrd)]
