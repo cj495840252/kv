@@ -29,6 +29,7 @@ rustls-native-certs = "0.5"
 futures = "0.3"
 tokio-util ={ version = "0.6", features = ["compat"]}
 yamux = "0.9" # 支持多路复用
+tokio-stream = "0.1"
 
 
 [dev-dependencies]

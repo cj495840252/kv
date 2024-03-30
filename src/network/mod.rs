@@ -1,7 +1,7 @@
 pub mod frame;
 pub mod tls;
 pub mod multiplex;
-
+pub mod stream_result;
 pub use frame::*;
 use futures::{ FutureExt, Sink, SinkExt, Stream, StreamExt};
 pub use tls::*;
@@ -12,6 +12,8 @@ use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::info;
 use crate::{CommandRequest, CommandResponse, KvError, Service};
+
+use self::stream_result::StreamResult;
 
 
 macro_rules! ready {
@@ -48,8 +50,9 @@ where
         let stream = &mut self.inner;
         while let Some(Ok(cmd)) = stream.next().await {
             info!("Got a new command:{:?}", cmd);
-            let res = self.service.execute(cmd);
-            stream.send(res).await?;
+            let mut res = self.service.execute(cmd);
+            let data = res.next().await.unwrap();
+            stream.send(&data).await?;
         };
         Ok(())
     }
@@ -72,7 +75,7 @@ where
 
 impl <S> ProstClientStream<S> 
 where 
-    S: AsyncRead + AsyncWrite + Unpin + Send
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static
 {
     pub fn new(stream: S) -> Self{
         Self { inner: ProstStream::new(stream) }
@@ -80,27 +83,31 @@ where
 
     pub async fn execute(&mut self, cmd: CommandRequest) -> Result<CommandResponse, KvError>{
         let stream = &mut self.inner;
-        stream.send(cmd).await?;
+        stream.send(&cmd).await?;
         match stream.next().await {
             Some(v) => v,
             None => Err(KvError::Internal("Didn't get any response".to_string()))
         }
     }
 
-    // pub async fn send(&mut self, msg: CommandRequest)-> Result<(), KvError>{
-    //     let mut buf = BytesMut::new();
-    //     msg.encode_frame(&mut buf)?;
-    //     self.inner.write_all(&buf).await?;
-    //     Ok(())
-    // }
+    pub async fn execute_unary(&mut self, cmd: &CommandRequest) -> Result<CommandResponse, KvError>{
+        let stream = &mut self.inner;
+        stream.send(cmd).await?;
+        let res = stream.next().await;
+        match res {
+            Some(v) => v,
+            None => Err(KvError::Internal("Didn't get any response".to_string()))
+        }
+    }
 
-    // pub async fn recv(&mut self) -> Result<CommandResponse, KvError> {
-    //     let mut buf = BytesMut::new();
+    pub async fn execute_streaming(self, cmd: &CommandRequest) -> Result<StreamResult, KvError>{
+        let mut stream = self.inner;
+        info!("Sending command: {:?}", cmd);
+        stream.send(cmd).await?;
+        stream.close().await?;
 
-    //     read_frame(&mut self.inner, &mut buf).await?;
-
-    //     CommandResponse::decode_frame(&mut buf)
-    // }
+        StreamResult::new(stream).await
+    }
 }
 
 /// 处理KvServer prost frame 的stream
@@ -123,7 +130,7 @@ pub struct ProstStream<S, In, Out>{
 
 impl <S, In, Out> ProstStream<S, In, Out>
 where 
-    S: AsyncRead + AsyncWrite + Unpin + Send,
+    S: AsyncRead + AsyncWrite + Unpin + Send ,
 {
     pub fn new(stream: S) -> Self{
         Self {
@@ -175,7 +182,7 @@ where
 }
 
 
-impl <S, In, Out> Sink<Out> for ProstStream<S, In, Out>
+impl <S, In, Out> Sink<&Out> for ProstStream<S, In, Out>
 where 
     S: AsyncRead + AsyncWrite + Unpin + Send,
     In: Unpin + Send ,
@@ -189,7 +196,7 @@ where
     }
 
     /// 将CommandRequest encode成frame 放入写缓冲区
-    fn start_send(self: std::pin::Pin<&mut Self>, item: Out) -> Result<(), Self::Error> {
+    fn start_send(self: std::pin::Pin<&mut Self>, item: &Out) -> Result<(), Self::Error> {
         let this = self.get_mut();
         item.encode_frame(&mut this.wbuf)?;
         Ok(())
@@ -261,12 +268,12 @@ mod tests{
         let cmd = CommandRequest::new_hset("table", "key", "value1".into());
         let res = client.execute(cmd).await?;
         // 第一次set应该返回None
-        assert_res_ok(res, &[Value::default()], &[]);
+        assert_res_ok(&res, &[Value::default()], &[]);
 
         let cmd = CommandRequest::new_hset("table", "key", "value2".into());
         let res = client.execute(cmd).await?;
         // 第二次set应该返回第一次的结果
-        assert_res_ok(res, &["value1".into()], &[]);
+        assert_res_ok(&res, &["value1".into()], &[]);
 
 
         Ok(())
@@ -282,11 +289,11 @@ mod tests{
         let cmd = CommandRequest::new_hset("table", "key", v.clone());
         let res = client.execute(cmd).await?;
 
-        assert_res_ok(res, &[Value::default()], &[]);
+        assert_res_ok(&res, &[Value::default()], &[]);
 
         let cmd = CommandRequest::new_hget("table", "key");
         let res = client.execute(cmd).await?;
-        assert_res_ok(res, &[v.into()], &[]);
+        assert_res_ok(&res, &[v.into()], &[]);
         Ok(())
 
     }
@@ -297,7 +304,7 @@ mod tests{
         let stream = DummyStream{buf};
         let mut stream: ProstStream<_, CommandRequest, CommandRequest> = ProstStream::new(stream);
         let cmd = CommandRequest::new_hget("table", "key");
-        stream.send(cmd.clone()).await?;
+        stream.send(&cmd).await?;
 
         if let Some(Ok(res)) = stream.next().await {
             assert_eq!(res, cmd);

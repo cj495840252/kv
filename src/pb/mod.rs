@@ -29,6 +29,35 @@ impl CommandRequest {
             request_data: Some(RequestData::Hgetall(Hgetall { table: table.into() }))
         }
     }
+
+    /// 创建PUBLISH
+    pub fn new_publish(topic: impl Into<String>, value: Value) -> Self {
+        Self {
+            request_data: Some(RequestData::Publish(Publish {
+                topic: topic.into(),
+                data: vec![value],
+            }))
+        }
+    }
+
+    /// 创建SUBSCRIBE
+    pub fn new_subscribe(topic: impl Into<String>) -> Self {
+        Self {
+            request_data: Some(RequestData::Subscribe(Subscribe {
+                topic: topic.into(),
+            }))
+        }
+    }
+
+    /// 创建UNSUBSCRIBE
+    pub fn new_unsubscribe(topic: impl Into<String>, id: u32) -> Self {
+        Self {
+            request_data: Some(RequestData::Unsubscribe(Unsubscribe {
+                topic: topic.into(),
+                id,
+            }))
+        }
+    }
 }
 
 impl From<Vec<Value>> for CommandResponse {
@@ -47,6 +76,21 @@ impl Kvpair {
         Self {
             key: key.into(),
             value: Some(value),
+        }
+    }
+}
+
+impl TryInto<i64> for Value {
+    type Error = KvError;
+
+    fn try_into(self) -> Result<i64, Self::Error> {
+        match self.value {
+            
+            Some(val) => match val {
+                value::Value::Integer(v) => Ok(v),
+                _ => return Err(KvError::ConvertError(val,"i64")),
+            },
+            None => return Err(KvError::Internal("value is None".to_string())),
         }
     }
 }
@@ -144,9 +188,30 @@ impl From<Result<(IVec, IVec), Error>> for Kvpair {
     }
 }
 
+
 fn ivec_to_key(ivec: &[u8]) -> &str {
     let s = std::str::from_utf8(ivec).unwrap();
     let mut iter = s.split(":");
     iter.next();
     iter.next().unwrap()
+}
+
+impl From<KvError> for CommandResponse {
+    fn from(e: KvError) -> Self {
+        let message = e.to_string();
+        match e {
+            KvError::NotFound(_, _) => CommandResponse { status: 404, message: message.clone(), ..Default::default() },
+            KvError::InvalidCommand(_) => CommandResponse { status: 401, message: message.clone(), ..Default::default() },
+            KvError::ConvertError(_, _) => CommandResponse { status: 402, message: message.clone(), ..Default::default() },
+            KvError::StorageError(_, _, _, _) => CommandResponse { status: 501, message: message.clone(), ..Default::default() },
+            KvError::EncodeError(_) => CommandResponse { status: 502, message: message.clone(), ..Default::default() },
+            KvError::DecodeError(_) => CommandResponse { status: 503, message: message.clone(), ..Default::default() },
+            KvError::Internal(_) => CommandResponse { status: 500, message: message.clone(), ..Default::default() },
+            KvError::FrameError => CommandResponse { status: 504, message: message.clone(), ..Default::default() },
+            KvError::TlsError(_) => CommandResponse { status: 505, message: message.clone(), ..Default::default() },
+            KvError::CertifacteParserError(_, _) => CommandResponse { status: 506, message: message.clone(), ..Default::default() },
+            KvError::IoError(_) => CommandResponse { status: 507, message: message.clone(), ..Default::default() },
+            KvError::YamuxConnectionError(_) => CommandResponse { status: 508, message: message.clone(), ..Default::default() }}
+    }
+    
 }

@@ -99,9 +99,10 @@ mod tests{
         let cmd = CommandRequest::new_hset("table", "key", "value".into());
         client.execute(cmd).await?;
 
-        let cmd = CommandRequest::new_hget_all("table");
+        let cmd = CommandRequest::new_hget("table", "key");
         let res = client.execute(cmd).await?;
-        assert_res_ok(res, &["value".into()], &[]);
+        println!("{:?}", res);
+        assert_res_ok(&res, &["value".into()], &[]);
 
 
 

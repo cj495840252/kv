@@ -47,6 +47,8 @@ impl From<Value> for CommandResponse {
     }
 }
 
+
+
 impl From<Vec<Kvpair>> for CommandResponse {
     fn from(value: Vec<Kvpair>) -> Self {
         Self {
@@ -54,25 +56,6 @@ impl From<Vec<Kvpair>> for CommandResponse {
             pairs: value,
             ..Default::default()
         }
-    }
-}
-
-impl From<KvError> for CommandResponse {
-    fn from(e: KvError) -> Self {
-        let mut result = Self{
-            status: 1,
-            message: e.to_string(),
-            values: vec![],
-            pairs: vec![],
-
-        };
-
-        match e {
-            KvError::NotFound(_, _) => result.status = 404,
-            KvError::InvalidCommand(_) => result.status = 500,
-            _ => {}
-        }
-        result
     }
 }
 
@@ -89,9 +72,9 @@ mod tests{
         let store = MemTable::new();
         let cmd = CommandRequest::new_hset("t1", "hello", "world".into());
         let res = dispatch(cmd.clone(), &store);
-        assert_res_ok(res, &[Value::default()], &[]);
+        assert_res_ok(&res, &[Value::default()], &[]);
         let res = dispatch(cmd, &store);
-        assert_res_ok(res, &["world".into()], &[])
+        assert_res_ok(&res, &["world".into()], &[])
     }
 
     #[test]
@@ -101,11 +84,11 @@ mod tests{
         dispatch(cmd, &store);
         let cmd = CommandRequest::new_hget("t1","hello");
         let res = dispatch(cmd, &store);
-        assert_res_ok(res, &["world".into()], &[]);
+        assert_res_ok(&res, &["world".into()], &[]);
 
         let cmd = CommandRequest::new_hget("score","u1");
         let res = dispatch(cmd, &store);
-        assert_res_error(res, 404, "Not Found");
+        assert_res_error(&res, 404, "Not Found");
 
     }
 
@@ -114,7 +97,7 @@ mod tests{
         let store = MemTable::new();
         let cmd = CommandRequest::new_hget("t1", "key");
         let res = dispatch(cmd, &store);
-        assert_res_error(res, 404,"Not Found")
+        assert_res_error(&res, 404,"Not Found")
 
     }
 
@@ -135,13 +118,13 @@ mod tests{
 
         let cmd = CommandRequest::new_hget_all("score");
         let res = dispatch(cmd, &store);
-
+        
         let pairs = &[
             Kvpair::new("u1", 6.into()),
             Kvpair::new("u2", 8.into()),
             Kvpair::new("u3", 11.into()),
         ];
-        assert_res_ok(res, &[], pairs)
+        assert_res_ok(&res, &[], pairs)
 
     }
 
@@ -155,3 +138,7 @@ mod tests{
         }
     }
 }
+
+
+
+
